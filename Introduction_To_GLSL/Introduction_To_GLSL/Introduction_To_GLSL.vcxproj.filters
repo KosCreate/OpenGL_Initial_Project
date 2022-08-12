@@ -39,14 +39,35 @@
     <ClCompile Include="Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\3rdParty\source\imgui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rdParty\source\imgui_demo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rdParty\source\imgui_draw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rdParty\source\imgui_impl_glfw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rdParty\source\imgui_impl_opengl3.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rdParty\source\imgui_tables.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\3rdParty\source\imgui_widgets.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="default.vert">
+    <Text Include="MultipleLights.vert">
       <Filter>Resource Files\Shaders</Filter>
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <None Include="default.frag">
+    <None Include="MultipleLights.frag">
       <Filter>Resource Files\Shaders</Filter>
     </None>
     <None Include="lampShader.vert">

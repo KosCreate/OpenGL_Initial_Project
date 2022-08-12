@@ -143,7 +143,3 @@ void Shader::Activate() {
 void Shader::Delete() {
 	glDeleteProgram(ID);
 }
-
-//bool Shader::getBool(const std::string& name, bool* value) {
-//	glGetnUniform1i();
-//}
