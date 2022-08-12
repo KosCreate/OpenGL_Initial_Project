@@ -1,2 +1,2 @@
 # OpenGL_Initial_Project
-OpenG basics 
+OpenGL basics 
