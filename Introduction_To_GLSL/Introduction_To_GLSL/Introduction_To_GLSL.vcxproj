@@ -151,7 +151,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\GLAD\src\glad.c" />
+    <ClCompile Include="..\3rdParty\source\glad.c" />
     <ClCompile Include="..\3rdParty\source\imgui.cpp" />
     <ClCompile Include="..\3rdParty\source\imgui_demo.cpp" />
     <ClCompile Include="..\3rdParty\source\imgui_draw.cpp" />
@@ -163,6 +163,7 @@
     <ClCompile Include="EBO.cpp" />
     <ClCompile Include="Introduction_To_GLSL.cpp" />
     <ClCompile Include="ShaderClass.cpp" />
+    <ClCompile Include="Texture.cpp" />
     <ClCompile Include="VAO.cpp" />
     <ClCompile Include="VBO.cpp" />
   </ItemGroup>
@@ -177,7 +178,9 @@
   <ItemGroup>
     <ClInclude Include="CameraClass.h" />
     <ClInclude Include="ElementBufferObject.h" />
+    <ClInclude Include="Mesh.h" />
     <ClInclude Include="shaderClass.h" />
+    <ClInclude Include="TextureClass.h" />
     <ClInclude Include="VertexArrayClass.h" />
     <ClInclude Include="VertexBufferClass.h" />
   </ItemGroup>

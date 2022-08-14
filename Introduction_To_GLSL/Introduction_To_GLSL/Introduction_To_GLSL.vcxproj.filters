@@ -21,9 +21,6 @@
     <ClCompile Include="Introduction_To_GLSL.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\GLAD\src\glad.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ShaderClass.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -60,6 +57,12 @@
     <ClCompile Include="..\3rdParty\source\imgui_widgets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\3rdParty\source\glad.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Texture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Text Include="MultipleLights.vert">
@@ -91,6 +94,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CameraClass.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureClass.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

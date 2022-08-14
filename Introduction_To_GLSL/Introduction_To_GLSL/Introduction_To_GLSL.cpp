@@ -1,13 +1,12 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#define STB_IMAGE_IMPLEMENTATION
 #include <irrKlang/irrKlang.h>
-#include <stb_image.h>
 #include <iostream>
 #include "shaderClass.h"
 #include "VertexBufferClass.h"
 #include "VertexArrayClass.h"
 #include "ElementBufferObject.h"
+#include "TextureClass.h"
 #include "CameraClass.h"
 #include <math.h>
 #include <glm/glm.hpp>
@@ -17,6 +16,7 @@
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_opengl3.h>
 
+unsigned int inputHolder;
 unsigned int SCR_WIDTH = 1280;
 unsigned int SCR_HEIGHT = 1024;
 
@@ -27,7 +27,10 @@ Camera camera(cameraStartingPosition, cameraStartingFront);
 
 bool initiated = false;
 bool locked = false;
-float cursorCounter = 0;
+
+float rateOfInput = 0.25f;
+float nextInput = 0.0f;
+bool pressed;
 //Mouse variables...
 //Last positions...
 float last_x = 0.0f;
@@ -39,55 +42,7 @@ float lastFrameTime = 0.0f;
 bool inGUI = false;
 bool muteAudio = false;
 ImGuiIO io;
-/// <summary>
-/// Load texture from file path. Also bind & set up texture configs
-/// </summary>
-unsigned int loadTexture(char const* path, bool flipVertically)
-{
-	unsigned int textureID;
-	glGenTextures(1, &textureID);
 
-	int width, height, numOfChannels;
-
-	stbi_set_flip_vertically_on_load(flipVertically);
-
-	unsigned char* data = stbi_load(path, &width, &height, &numOfChannels, 0);
-
-	if (data)
-	{
-		GLenum format;
-		if (numOfChannels == 1)
-			format = GL_RED;
-		else if (numOfChannels == 3)
-			format = GL_RGB;
-		else if (numOfChannels == 4)
-			format = GL_RGBA;
-		else
-		{
-			std::cout << "FAILED TO LOAD TEXTURE (BAD CHANNELS) AT PATH " << path << std::endl;
-			stbi_image_free(data);
-			return textureID;
-		}
-
-		glBindTexture(GL_TEXTURE_2D, textureID);
-		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-
-		glGenerateMipmap(GL_TEXTURE_2D);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	}
-	else
-	{
-		std::cout << "FAILED TO LOAD TEXTURE AT PATH " << path << std::endl;
-	}
-
-	stbi_image_free(data);
-
-	return textureID;
-}
 /// <summary>
 /// Process keyboard input
 /// </summary>
@@ -99,30 +54,60 @@ void ProcessInput(GLFWwindow* window) {
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) { camera.ProcessKeyboard(LEFT, deltaTime); }
 	if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {	camera.ProcessKeyboard(UP, deltaTime); }
 	if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) { camera.ProcessKeyboard(DOWN, deltaTime); }
+	if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) { inputHolder = 0; }
+	if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) { inputHolder = 1; }
+	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) { inputHolder = 2; }
 	//Toggle for cursor lock mode...
 	if(glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
-		cursorCounter += deltaTime;
-		if (cursorCounter >= 0.05f) {	
+		if (inputHolder != 0) {
+			nextInput = 0.0f;
+			inputHolder = 0;
+		}
+		if (glfwGetTime() > nextInput) {
+			nextInput = glfwGetTime() * 10.0f;	
+			pressed = true;
 			//Grab / Lock Cursor...
 			locked = locked ? false : true;
 			glfwSetInputMode(window, GLFW_CURSOR, locked ? GLFW_CURSOR_HIDDEN : GLFW_CURSOR_DISABLED);
-			cursorCounter = 0;
 		}
+		
+	}
+	if (glfwGetKey(window, GLFW_KEY_C) == GLFW_RELEASE && pressed) {
+		nextInput = glfwGetTime() + rateOfInput;
+		pressed = false;
 	}
 	if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
-		cursorCounter += deltaTime;
-		if (cursorCounter >= 0.05f) {
+		if (inputHolder != 1) {
+			nextInput = 0.0f;
+			inputHolder = 1;
+		}
+		if (glfwGetTime() > nextInput) {
+			pressed = true;
+			nextInput = glfwGetTime() * 10.0f;
 			//Grab / Lock Cursor...
 			inGUI = inGUI ? false : true;
-			cursorCounter = 0;
 		}
+		
+	}
+	if (glfwGetKey(window, GLFW_KEY_L) == GLFW_RELEASE && pressed) {
+		nextInput = glfwGetTime() + rateOfInput;
+		pressed = false;
 	}
 	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
-		cursorCounter += deltaTime;
-		if (cursorCounter >= 0.05f) {
-			muteAudio = muteAudio ? false : true;
-			cursorCounter = 0;
+		if (inputHolder != 2) {
+			nextInput = 0.0f;
+			inputHolder = 2;
 		}
+		if (glfwGetTime() > nextInput) {
+			pressed = true;
+			nextInput = glfwGetTime() * 10.0f;
+			muteAudio = muteAudio ? false : true;
+		}
+		
+	}
+	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_RELEASE && pressed) {
+		nextInput = glfwGetTime() + rateOfInput;
+		pressed = false;
 	}
 }
 /// <summary>
@@ -335,8 +320,8 @@ int main() {
 	LightVAO.Bind();
 	LightVAO.LinkVBO(VBO, 0, 3, 8, 0);
 
-	unsigned int diffuseMap = loadTexture("Textures/diffuseMap.png", false);
-	unsigned int specularMap = loadTexture("Textures/specularMap.png", false);
+	Texture diffuseMap("Textures/diffuseMap.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_UNSIGNED_BYTE,false);
+	Texture specularMap("Textures/specularMap.png", GL_TEXTURE_2D, GL_TEXTURE1, GL_UNSIGNED_BYTE, false);
 
 	shaderProgram.Activate();
 	
@@ -625,17 +610,18 @@ int main() {
 			ImGui::SliderFloat("P_Light 4s Quadratic", &light4QuadraticValue, 0.0f, 0.5f);
 		}
 		SetPointLightConfigs(3, shaderProgram, light4Ambient, light4Diffuse, light4Specular, light4ConstValue, light4LinearValue, light4QuadraticValue);
-#pragma endregion
+	#pragma endregion
 
 		glm::mat4 model;
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, diffuseMap);
+		diffuseMap.Bind(GL_TEXTURE0);
+		specularMap.Bind(GL_TEXTURE1);
 
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, specularMap);
-
-		for (int i = 0; i < 10; i++) {
+		static int index = 2;
+		if (ImGui::TreeNode("Primitive Model Configs")) {
+			ImGui::SliderInt("Number Of Models", &index, 0.0f, std::size(cubePositions));
+		}
+		for (int i = 0; i < index; i++) {
 			model = glm::mat4(1.0f);
 			model = glm::translate(model, cubePositions[i]);
 			model = glm::rotate(model, glm::radians(20.0f), glm::vec3(0.3f, 1.0f, 0.2f));
@@ -680,6 +666,8 @@ int main() {
 	ImGui::DestroyContext();
 	shaderProgram.Delete();
 	lampShader.Delete();
+	diffuseMap.Delete();
+	specularMap.Delete();
 	glfwTerminate();
 	return 0;
 }
