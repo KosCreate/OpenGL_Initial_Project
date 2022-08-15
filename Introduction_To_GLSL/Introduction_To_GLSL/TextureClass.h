@@ -7,7 +7,8 @@ class Texture
 	public :
 	GLuint ID;
 	GLenum Type;
-	Texture(const char* texturePath, GLenum textType, GLenum slot, GLenum pixelType, bool flipVertically);
+	const char* type;
+	Texture(const char* texturePath, GLenum textType, const char* charType, GLenum slot, GLenum pixelType, bool flipVertically);
 	void Bind(GLenum slot);
 	void UnBind();
 	void Delete();

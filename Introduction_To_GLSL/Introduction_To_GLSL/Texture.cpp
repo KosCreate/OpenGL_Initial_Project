@@ -2,9 +2,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-Texture::Texture(const char* texturePath, GLenum texType, GLenum slot, GLenum pixelType, bool flipVertically) {
+Texture::Texture(const char* texturePath, GLenum texType, const char* charType,GLenum slot, GLenum pixelType, bool flipVertically) {
 		// Assigns the type of the texture ot the texture object
 		Type = texType;
+		type = charType;
 		GLenum format;
 		// Generates an OpenGL texture object
 		glGenTextures(1, &ID);

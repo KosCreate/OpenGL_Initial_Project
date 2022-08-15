@@ -1,13 +1,14 @@
+#define GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX 0x9048
+#define GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX 0x9049
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <irrKlang/irrKlang.h>
 #include <iostream>
 #include "shaderClass.h"
-#include "VertexBufferClass.h"
 #include "VertexArrayClass.h"
-#include "ElementBufferObject.h"
-#include "TextureClass.h"
+#include "VertexBufferClass.h"
 #include "CameraClass.h"
+#include "Model.h"
 #include <math.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -15,6 +16,7 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_opengl3.h>
+#include <assimp/ai_assert.h>
 
 unsigned int inputHolder;
 unsigned int SCR_WIDTH = 1280;
@@ -39,6 +41,9 @@ float last_y = 0.0f;
 float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
 
+GLint total_mem_kb = 0;
+GLint cur_avail_mem_kb = 0;
+
 bool inGUI = false;
 bool muteAudio = false;
 ImGuiIO io;
@@ -57,7 +62,6 @@ void ProcessInput(GLFWwindow* window) {
 	if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) { inputHolder = 0; }
 	if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) { inputHolder = 1; }
 	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) { inputHolder = 2; }
-	//Toggle for cursor lock mode...
 	if(glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
 		if (inputHolder != 0) {
 			nextInput = 0.0f;
@@ -246,84 +250,57 @@ int main() {
 
 	glEnable(GL_DEPTH_TEST);
 
-	float vertices[] = {
-		// positions         // normals           // texture
-	   -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
-		0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  0.0f,
-		0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
-		0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
-	   -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  1.0f,
-	   -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
-
-	   -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,
-		0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  0.0f,
-		0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
-		0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
-	   -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
-	   -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,
-
-	   -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
-	   -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,
-	   -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
-	   -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
-	   -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,
-	   -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
-
-		0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
-		0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f,
-		0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
-		0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
-		0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f,
-		0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
-
-	   -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,
-		0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  1.0f,
-		0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,
-		0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,
-	   -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  0.0f,
-	   -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,
-
-	   -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
-		0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
-		0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,
-		0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,
-	   -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f,
-	   -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f
-	};
-
 	glm::vec3 cubePositions[] = {
 		glm::vec3(0.0f, 0.0f, 0.0f),
-		glm::vec3(2.0f, 5.0f, -15.0f),
-		glm::vec3(-1.5f, -2.2f, -2.5f),
-		glm::vec3(-3.8f, -2.0f, -12.3f),
-		glm::vec3(2.4f, -0.4f, -3.5f),
-		glm::vec3(-1.7f, 3.0f, -7.5f),
-		glm::vec3(1.3f, -2.0f, -2.5f),
-		glm::vec3(1.5f, 2.0f, -2.5f),
-		glm::vec3(1.5f, 0.2f, -1.5f),
-		glm::vec3(-1.3f, 1.0f, -1.5f)
+		glm::vec3(3.0f, 0.0f, 0.0f),
+		glm::vec3(6.0f, 0.0f, 0.0f),
+		glm::vec3(12.0f, 0.0f, 0.0f),
+		glm::vec3(18.0f, 0.0f, 0.0f),
+		glm::vec3(24.0f, 0.0f, 0.0f),
+		glm::vec3(30.0f, 0.0f, 0.0f),
+		glm::vec3(36.0f, 0.0f, 0.0f),
+		glm::vec3(42.0f, 0.0f, 0.0f),
+		glm::vec3(48.0f, 0.0f, 0.0f)
+	};
+
+	std::string modelPaths[]
+	{
+		"Models/backpack/backpack.obj",
+		"Models/plant/indoor plant_02.obj",
+		"Models/nanosuit/nanosuit.obj",
+		"Models/tower/Medieval_tower_High.obj",
+		"Models/buildings/Residential Buildings 001.obj",
+		"Models/buildings/Residential Buildings 002.obj",
+		"Models/buildings/Residential Buildings 003.obj",
+		"Models/buildings/Residential Buildings 004.obj",
+		"Models/buildings/Residential Buildings 005.obj",
+		"Models/buildings/Residential Buildings 006.obj",
+		"Models/buildings/Residential Buildings 007.obj",
+		"Models/buildings/Residential Buildings 008.obj",
+		"Models/buildings/Residential Buildings 009.obj",
+		"Models/buildings/Residential Buildings 010.obj",
 	};
 
 	Shader shaderProgram("MultipleLights.vert", "MultipleLights.frag");
 	Shader lampShader("lampShader.vert", "lampShader.frag");
-	VBO VBO(vertices, sizeof(vertices));
-	VBO.Bind();
-	VAO CrateVAO(1, shaderProgram.ID);
-	VAO LightVAO(1, lampShader.ID);
-	CrateVAO.Bind();
-	//Arguments : ( Starting with the VBO to be linked ) & then
-	//Arguments : 1st: layout location, 2nd: elements, 3rd: element stride, 4th: starting position
-	CrateVAO.LinkVBO(VBO, 0, 3, 8, 0);
-	CrateVAO.LinkVBO(VBO, 1, 3, 8, 3);
-	CrateVAO.LinkVBO(VBO, 2, 2, 8, 6);
 
-	LightVAO.Bind();
-	LightVAO.LinkVBO(VBO, 0, 3, 8, 0);
+	Model models[]
+	{
+		Model(modelPaths[0]),
+		Model(modelPaths[1]),
+		Model(modelPaths[2]),
+		Model(modelPaths[3]),
+		Model(modelPaths[4]),
+		Model(modelPaths[5]),
+		Model(modelPaths[6]),
+		Model(modelPaths[7]),
+		Model(modelPaths[8]),
+		Model(modelPaths[9]),
+		Model(modelPaths[10]),
+		Model(modelPaths[11]),
+	};
 
-	Texture diffuseMap("Textures/diffuseMap.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_UNSIGNED_BYTE,false);
-	Texture specularMap("Textures/specularMap.png", GL_TEXTURE_2D, GL_TEXTURE1, GL_UNSIGNED_BYTE, false);
-
-	shaderProgram.Activate();
+	Model lapmModel("Models/plant/indoor plant_02.obj");
 	
  	 //------------------------//
 	 //Main render loop...
@@ -349,7 +326,25 @@ int main() {
 
 		//Begin UI Draw & Callbacks...
 		ImGui::Begin("Light/Material Configs");
-		
+		if (ImGui::TreeNode("Processing Data")) {
+			std::string fpsMsg = "MS/FPS : " + std::to_string(1000.0 / double(deltaTime));
+			glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX, &total_mem_kb);
+			glGetIntegerv(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX,
+				&cur_avail_mem_kb);
+			std::string totalMemoryInfo = "Total Memory : " + std::to_string(total_mem_kb)+"MB";
+			std::string currentMemoryInfo = "Current Available Memory : " + std::to_string(cur_avail_mem_kb)+"MB";
+			float diff = (total_mem_kb - cur_avail_mem_kb)/1000;
+			std::string memoryUsage = "Memory Usage : " + std::to_string(diff)+"MB";
+			ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 160, 155, 255));
+			ImGui::Text(fpsMsg.c_str());
+			ImGui::Text(totalMemoryInfo.c_str());
+			ImGui::SameLine(0, 18.0f);
+			ImGui::Text(currentMemoryInfo.c_str());
+			ImGui::Text(memoryUsage.c_str());
+			ImGui::PopStyleColor();
+		}
+		ImGui::Spacing();
+
 		//Initial Instructions...
 		ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
 		ImGui::Text("INPUT INSTRUCTIONS :");
@@ -381,7 +376,7 @@ int main() {
 		ImGui::Spacing(); 
 		ImGui::PopStyleColor();
 
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glm::vec3 pointLightPositions[] = {
@@ -408,8 +403,6 @@ int main() {
 
 		shaderProgram.setMat4("view", view);
 		shaderProgram.setMat4("projection", projection);
-
-		CrateVAO.Bind();
 
 		shaderProgram.setVec3("spotLight.position", camera.cameraTransform.position);
 		shaderProgram.setVec3("spotLight.direction", camera.cameraTransform.cameraFront);
@@ -614,28 +607,26 @@ int main() {
 
 		glm::mat4 model;
 
-		diffuseMap.Bind(GL_TEXTURE0);
-		specularMap.Bind(GL_TEXTURE1);
 
 		static int index = 2;
-		if (ImGui::TreeNode("Primitive Model Configs")) {
+		if (ImGui::TreeNode("Model Configs")) {
 			ImGui::SliderInt("Number Of Models", &index, 0.0f, std::size(cubePositions));
 		}
+
 		for (int i = 0; i < index; i++) {
 			model = glm::mat4(1.0f);
 			model = glm::translate(model, cubePositions[i]);
-			model = glm::rotate(model, glm::radians(20.0f), glm::vec3(0.3f, 1.0f, 0.2f));
-
+			model = glm::scale(model, glm::vec3(0.2f));
 			shaderProgram.setMat4("model", model);
-
-			CrateVAO.DrawTriangleArrays(0, 36);
+			// tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
+			stbi_set_flip_vertically_on_load(true);
+			models[i].Draw(shaderProgram);
 		}
 
 		lampShader.Activate();
 		lampShader.setMat4("view", view);
 		lampShader.setMat4("projection", projection);
 		//Draw light emitter cube...
-		LightVAO.Bind();
 
 		//Light color configs...
 		static float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -650,7 +641,7 @@ int main() {
 			model = glm::translate(model, pointLightPositions[i]);
 			model = glm::scale(model, glm::vec3(0.2f));
 			lampShader.setMat4("model", model);
-			LightVAO.DrawTriangleArrays(0, 36);
+			lapmModel.Draw(lampShader);
 		}
 
 		ImGui::End();
@@ -666,8 +657,6 @@ int main() {
 	ImGui::DestroyContext();
 	shaderProgram.Delete();
 	lampShader.Delete();
-	diffuseMap.Delete();
-	specularMap.Delete();
 	glfwTerminate();
 	return 0;
 }
