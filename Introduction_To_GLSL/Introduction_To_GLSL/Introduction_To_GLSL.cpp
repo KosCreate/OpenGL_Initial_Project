@@ -17,6 +17,23 @@
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_opengl3.h>
 #include <assimp/ai_assert.h>
+#include <vector>
+
+unsigned int numberOfPointLights = 10;
+
+struct PointLightSettings
+{
+public:
+	float ambient[4] = { 0.05f, 0.05f, 0.05f, 1.0f };
+	float specular[4] = { 0.05f, 0.05f, 0.05f, 1.0f };
+	float diffuse[4] = { 0.05f, 0.05f, 0.05f, 1.0f };
+	float constant = 1.0f;
+	float linear = 0.09f;
+	float quadratic = 0.032f;
+};
+
+bool canDrawComic = true;
+bool comicEffect;
 
 unsigned int inputHolder;
 unsigned int SCR_WIDTH = 1280;
@@ -216,10 +233,6 @@ void SetPointLightConfigs(int pointLightIndex, Shader shader, glm::vec3 pointAmb
 	float constant, float linear, float quadratic) {
 	std::string pointLightString = "pointLights[]";
 	std::string pointLightIndexString = pointLightString.insert(12, std::to_string(pointLightIndex).c_str());
-	if (GLFW_KEY_SPACE == GLFW_PRESS)
-	{
-		std::cout << "INITIALING : " << " " << pointLightIndexString << std::endl;
-	}
 	shader.setVec3(pointLightIndexString + ".ambient", pointAmbient);
 	shader.setVec3(pointLightIndexString + ".diffuse", pointDiffuse);
 	shader.setVec3(pointLightIndexString + ".specular", pointSpecular);
@@ -250,7 +263,8 @@ int main() {
 
 	glEnable(GL_DEPTH_TEST);
 
-	glm::vec3 cubePositions[] = {
+	glm::vec3 cubePositions[] =
+	{
 		glm::vec3(0.0f, 0.0f, 0.0f),
 		glm::vec3(3.0f, 0.0f, 0.0f),
 		glm::vec3(6.0f, 0.0f, 0.0f),
@@ -300,18 +314,27 @@ int main() {
 		Model(modelPaths[11]),
 	};
 
-	Model lapmModel("Models/plant/indoor plant_02.obj");
+	Model lapmModel("Models/minecraft_lamp/source/Redstone-lamp.obj");
+	
+
 	
  	 //------------------------//
 	 //Main render loop...
     //------------------------//
    //While the window should not be closed...
 
+	std::vector<PointLightSettings> pointLightSettings(numberOfPointLights);
+	PointLightSettings previousLightSettings;
+	std::vector<glm::vec3> pAmbientValues(numberOfPointLights);
+	std::vector<glm::vec3> pDiffuseValues(numberOfPointLights);
+	std::vector<glm::vec3> pSpecularValues(numberOfPointLights);
+
+	#pragma region Main Rendering Loop
 
 	while (!glfwWindowShouldClose(window)) {
 		//Poll keyboard events to make the window interactable...
 		glfwPollEvents();
- 		float currentFrame = glfwGetTime();
+		float currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrameTime;
 		lastFrameTime = currentFrame;
 		//Processing the user input...
@@ -331,10 +354,10 @@ int main() {
 			glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX, &total_mem_kb);
 			glGetIntegerv(GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX,
 				&cur_avail_mem_kb);
-			std::string totalMemoryInfo = "Total Memory : " + std::to_string(total_mem_kb)+"MB";
-			std::string currentMemoryInfo = "Current Available Memory : " + std::to_string(cur_avail_mem_kb)+"MB";
-			float diff = (total_mem_kb - cur_avail_mem_kb)/1000;
-			std::string memoryUsage = "Memory Usage : " + std::to_string(diff)+"MB";
+			std::string totalMemoryInfo = "Total Memory : " + std::to_string(total_mem_kb) + "MB";
+			std::string currentMemoryInfo = "Current Available Memory : " + std::to_string(cur_avail_mem_kb) + "MB";
+			float diff = (total_mem_kb - cur_avail_mem_kb) / 1000;
+			std::string memoryUsage = "Memory Usage : " + std::to_string(diff) + "MB";
 			ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 160, 155, 255));
 			ImGui::Text(fpsMsg.c_str());
 			ImGui::Text(totalMemoryInfo.c_str());
@@ -373,24 +396,32 @@ int main() {
 		ImGui::Checkbox("Mute Audio", &muteAudio);
 		MainThemeSoundEngine->setSoundVolume(musicVolume);
 		AmbienceSoundEngine->setSoundVolume(ambienceVolume);
-		ImGui::Spacing(); 
+		ImGui::Spacing();
 		ImGui::PopStyleColor();
 
-		glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+		glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glm::vec3 pointLightPositions[] = {
-		glm::vec3(0.7f + glm::cos(glfwGetTime()),  0.2f + glm::sin(glfwGetTime()),  2.0f),
-		glm::vec3(2.3f + glm::cos(glfwGetTime()), -3.3f + glm::sin(glfwGetTime()), -4.0f),
-		glm::vec3(-4.0f + glm::cos(glfwGetTime()),  2.0f + glm::sin(glfwGetTime()), -12.0f),
-		glm::vec3(0.0f + glm::cos(glfwGetTime()),  0.0f + glm::sin(glfwGetTime()), -3.0f)
+		glm::vec3 pointLightPositions[] =
+		{
+			glm::vec3(0.0f + glm::cos(glfwGetTime()), 0.0f + glm::sin(glfwGetTime()), 2.0f),
+			glm::vec3(3.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 2.0f),
+			glm::vec3(6.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 2.0f),
+			glm::vec3(12.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 2.0f),
+			glm::vec3(18.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 3.0f),
+			glm::vec3(24.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 3.0f),
+			glm::vec3(30.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 3.0f),
+			glm::vec3(36.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 4.0f),
+			glm::vec3(42.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 4.0f),
+			glm::vec3(48.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 4.0f)
 		};
 
 		shaderProgram.Activate();
-		shaderProgram.setVec3("pointLights[0].position", pointLightPositions[0]);
-		shaderProgram.setVec3("pointLights[1].position", pointLightPositions[1]);
-		shaderProgram.setVec3("pointLights[2].position", pointLightPositions[2]);
-		shaderProgram.setVec3("pointLights[3].position", pointLightPositions[3]);
+		for (int i = 0; i < 10; i++) {
+			std::string pointLightString = "pointLights[]";
+			std::string pointLightIndexString = pointLightString.insert(12, std::to_string(i).c_str());
+			shaderProgram.setVec3(pointLightIndexString + ".position", pointLightPositions[i]);
+		}
 		shaderProgram.setVec3("viewPos", camera.cameraTransform.position);
 
 		glm::mat4 view = glm::mat4(1.0f);
@@ -407,7 +438,47 @@ int main() {
 		shaderProgram.setVec3("spotLight.position", camera.cameraTransform.position);
 		shaderProgram.setVec3("spotLight.direction", camera.cameraTransform.cameraFront);
 
+		#pragma region Comic Effect
+		if (ImGui::Checkbox("Comic Effect", &comicEffect)) {
+			if (comicEffect) {
+				if (canDrawComic) {
+					pointLightSettings[0].constant = 0;
+					pointLightSettings[0].linear = 0;
+					pointLightSettings[0].quadratic = 0;
+					canDrawComic = false;
+				}
+			}
+			else {
+				if (!canDrawComic) {
+					pointLightSettings[0] = previousLightSettings;
+					canDrawComic = true;
+				}
+			}
+		}
+		#pragma endregion
+
+		#pragma region Model Material uniform & GUI values handling
+		//Material Configs...
+		static float shininess = 10.0f;
+		static int matDiffuse = 0;
+		static int matSpecular = 1;
+		if (ImGui::TreeNode("Model Material Properties"))
+		{
+			//Material Shininess...
+			ImGui::SliderFloat("Shininess", &shininess, 0.01f, 100.0f);
+			ImGui::SliderInt("Diffuse", &matDiffuse, 0, 1);
+			ImGui::SliderInt("Specular", &matSpecular, 0, 1);
+		}
+		shaderProgram.setFloat("material.shininess", shininess);
+		shaderProgram.setInt("material.diffuse", matDiffuse);
+		shaderProgram.setInt("material.specular", matSpecular);
+		#pragma endregion
+
 		#pragma region Directional Light uniform & GUI values handling
+		ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(200, 100, 255, 255));
+		ImGui::Text("LIGHT CONFIGS");
+		ImGui::PopStyleColor();
+
 		//Directional Light Configs...
 		static float dirDirection[3] = { -0.2f, -1.0f, -0.3f };
 		glm::vec3 dirLightDirection = glm::vec3(dirDirection[0], dirDirection[1], dirDirection[2]);
@@ -433,23 +504,6 @@ int main() {
 		shaderProgram.setVec3("dirLight.ambient", ambient);
 		shaderProgram.setVec3("dirLight.diffuse", diffuse);
 		shaderProgram.setVec3("dirLight.specular", specular);
-		#pragma endregion
-
-		#pragma region Model Material uniform & GUI values handling
-		//Material Configs...
-		static float shininess = 10.0f;
-		static int matDiffuse = 0;
-		static int matSpecular = 1;
-		if (ImGui::TreeNode("Model Material Properties"))
-		{
-			//Material Shininess...
-			ImGui::SliderFloat("Shininess", &shininess, 0.01f, 100.0f);
-			ImGui::SliderInt("Diffuse", &matDiffuse, 0, 1);
-			ImGui::SliderInt("Specular", &matSpecular, 0, 1);
-		}
-		shaderProgram.setFloat("material.shininess", shininess);
-		shaderProgram.setInt("material.diffuse", matDiffuse);
-		shaderProgram.setInt("material.specular", matSpecular);
 		#pragma endregion
 
 		#pragma region Spotlight uniform & GUI values handling
@@ -495,120 +549,39 @@ int main() {
 		#pragma endregion
 
 		#pragma region Point Light uniform values & GUI values handling
-		//Point light Configs...
-		// point light 1
-		static float pointLight1AmbientValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light1Ambient = glm::vec3(pointLight1AmbientValues[0], pointLight1AmbientValues[1], pointLight1AmbientValues[2]);
-		static float pointLight1DiffuseValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light1Diffuse = glm::vec3(pointLight1DiffuseValues[0], pointLight1DiffuseValues[1], pointLight1DiffuseValues[2]);
-		static float pointLight1SpecularValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light1Specular = glm::vec3(pointLight1SpecularValues[0], pointLight1SpecularValues[1], pointLight1SpecularValues[2]);
-		static float light1ConstValue = 1.0f;
-		static float light1LinearValue = 0.09f;
-		static float light1QuadraticValue = 0.032f;
-		if (ImGui::TreeNode("POINT LIGHT 1 Configs :"))
-		{
-			//Ambient...
-			ImGui::SliderFloat3("P_Light 1 Ambient", pointLight1AmbientValues, 0.0f, 2.0f);
-			//Specular...
-			ImGui::SliderFloat3("P_Light 1 Specular", pointLight1SpecularValues, 0.0f, 2.0f);
-			//Diffuse...
-			ImGui::SliderFloat3("P_Light 1 Diffuse", pointLight1DiffuseValues, 0.0f, 2.0f);
-			//Const...
-			ImGui::SliderFloat("P_Light 1 Constant", &light1ConstValue, 0.0f, 2.0f);
-			//Linear...
-			ImGui::SliderFloat("P_Light 1 Linear", &light1LinearValue, 0.0f, 1.0f);
-			//Quadratic 
-			ImGui::SliderFloat("P_Light 1 Quadratic", &light1QuadraticValue, 0.0f, 0.5f);
-		}
-		SetPointLightConfigs(0, shaderProgram, light1Ambient, light1Diffuse, light1Specular, light1ConstValue, light1LinearValue, light1QuadraticValue);
 
-		//point light 2 :
-		static float pointLight2AmbientValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light2Ambient = glm::vec3(pointLight2AmbientValues[0], pointLight2AmbientValues[1], pointLight2AmbientValues[2]);
-		static float pointLight2DiffuseValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light2Diffuse = glm::vec3(pointLight2DiffuseValues[0], pointLight2DiffuseValues[1], pointLight2DiffuseValues[2]);
-		static float pointLight2SpecularValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light2Specular = glm::vec3(pointLight2SpecularValues[0], pointLight2SpecularValues[1], pointLight2SpecularValues[2]);
-		static float light2ConstValue = 1.0f;
-		static float light2LinearValue = 0.09f;
-		static float light2QuadraticValue = 0.032f;
-		if (ImGui::TreeNode("POINT LIGHT 2 Configs :"))
-		{
-			//Ambient...
-			ImGui::SliderFloat3("P_Light 2 Ambient", pointLight2AmbientValues, 0.0f, 2.0f);
-			//Specular...
-			ImGui::SliderFloat3("P_Light 2 Specular", pointLight2SpecularValues, 0.0f, 2.0f);
-			//Diffuse...
-			ImGui::SliderFloat3("P_Light 2 Diffuse", pointLight2DiffuseValues, 0.0f, 2.0f);
-			//Const...
-			ImGui::SliderFloat("P_Light 2 Constant", &light2ConstValue, 0.0f, 2.0f);
-			//Linear...
-			ImGui::SliderFloat("P_Light 2 Linear", &light2LinearValue, 0.0f, 1.0f);
-			//Quadratic 
-			ImGui::SliderFloat("P_Light 2 Quadratic", &light2QuadraticValue, 0.0f, 0.5f);
+		for (int i = 0; i < pAmbientValues.size(); i++) {
+			for (int i = 0; i < numberOfPointLights; i++) {
+				pAmbientValues[i] = glm::vec3(pointLightSettings[i].ambient[0], pointLightSettings[i].ambient[1], pointLightSettings[i].ambient[2]);
+				pDiffuseValues[i] = glm::vec3(pointLightSettings[i].diffuse[0], pointLightSettings[i].diffuse[1], pointLightSettings[i].diffuse[2]);
+				pSpecularValues[i] = glm::vec3(pointLightSettings[i].specular[0], pointLightSettings[i].specular[1], pointLightSettings[i].specular[2]);
+			}
+			std::string title = "Point Light : " + std::to_string(i + 1) + " Configs";
+			if (ImGui::TreeNode(title.c_str())) {
+				if (pointLightSettings[0].linear != 0) {
+					previousLightSettings = pointLightSettings[0];
+				}
+				//Ambient...
+				ImGui::ColorEdit4("Ambient", pointLightSettings[i].ambient);
+				//Specular...
+				ImGui::ColorEdit4("Specular", pointLightSettings[i].specular);
+				//Diffuse...
+				ImGui::ColorEdit4("Diffuse", pointLightSettings[i].diffuse);
+				//Const...
+				ImGui::SliderFloat("Constant", &pointLightSettings[i].constant, 0.0f, 2.0f);
+				//Linear...
+				ImGui::SliderFloat("Linear", &pointLightSettings[i].linear, 0.0f, 1.0f);
+				//Quadratic 
+				ImGui::SliderFloat("Quadratic", &pointLightSettings[i].quadratic, 0.0f, 0.5f);
+			}
+			SetPointLightConfigs(i, shaderProgram, pAmbientValues[i], pSpecularValues[i], pDiffuseValues[i], pointLightSettings[i].constant, pointLightSettings[i].linear, pointLightSettings[i].quadratic);
 		}
-		SetPointLightConfigs(1, shaderProgram, light2Ambient, light2Diffuse, light2Specular, light2ConstValue, light2LinearValue, light2QuadraticValue);
 
-		//point light 3 :
-		static float pointLight3AmbientValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light3Ambient = glm::vec3(pointLight3AmbientValues[0], pointLight3AmbientValues[1], pointLight3AmbientValues[2]);
-		static float pointLight3DiffuseValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light3Diffuse = glm::vec3(pointLight3DiffuseValues[0], pointLight3DiffuseValues[1], pointLight3DiffuseValues[2]);
-		static float pointLight3SpecularValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light3Specular = glm::vec3(pointLight3SpecularValues[0], pointLight3SpecularValues[1], pointLight3SpecularValues[2]);
-		static float light3ConstValue = 1.0f;
-		static float light3LinearValue = 0.09f;
-		static float light3QuadraticValue = 0.032f;
-		if (ImGui::TreeNode("POINT LIGHT 3 Configs :"))
-		{
-			//Ambient...
-			ImGui::SliderFloat3("P_Light 3 Ambient", pointLight3AmbientValues, 0.0f, 2.0f);
-			//Specular...
-			ImGui::SliderFloat3("P_Light 3 Specular", pointLight3SpecularValues, 0.0f, 2.0f);
-			//Diffuse...
-			ImGui::SliderFloat3("P_Light 3 Diffuse", pointLight3DiffuseValues, 0.0f, 2.0f);
-			//Const...
-			ImGui::SliderFloat("P_Light 3 Constant", &light3ConstValue, 0.0f, 2.0f);
-			//Linear...
-			ImGui::SliderFloat("P_Light 3 Linear", &light3LinearValue, 0.0f, 1.0f);
-			//Quadratic 
-			ImGui::SliderFloat("P_Light 3 Quadratic", &light3QuadraticValue, 0.0f, 0.5f);
-		}
-		SetPointLightConfigs(2, shaderProgram, light3Ambient, light3Diffuse, light3Specular, light3ConstValue, light3LinearValue, light3QuadraticValue);
-
-		//point light 4 : 
-		static float pointLight4AmbientValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light4Ambient = glm::vec3(pointLight4AmbientValues[0], pointLight4AmbientValues[1], pointLight4AmbientValues[2]);
-		static float pointLight4DiffuseValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light4Diffuse = glm::vec3(pointLight4DiffuseValues[0], pointLight4DiffuseValues[1], pointLight4DiffuseValues[2]);
-		static float pointLight4SpecularValues[3] = { 0.05f, 0.05f, 0.05f };
-		glm::vec3 light4Specular = glm::vec3(pointLight4SpecularValues[0], pointLight4SpecularValues[1], pointLight4SpecularValues[2]);
-		static float light4ConstValue = 1.0f;
-		static float light4LinearValue = 0.09f;
-		static float light4QuadraticValue = 0.032f;
-		if (ImGui::TreeNode("POINT LIGHT 4 Configs :"))
-		{
-			//Ambient...
-			ImGui::SliderFloat3("P_Light 4 Ambient", pointLight4AmbientValues, 0.0f, 2.0f);
-			//Specular...
-			ImGui::SliderFloat3("P_Light 4 Specular", pointLight4SpecularValues, 0.0f, 2.0f);
-			//Diffuse...
-			ImGui::SliderFloat3("P_Light 4 Diffuse", pointLight4DiffuseValues, 0.0f, 2.0f);
-			//Const...
-			ImGui::SliderFloat("P_Light 4 Constant", &light4ConstValue, 0.0f, 2.0f);
-			//Linear...
-			ImGui::SliderFloat("P_Light 4 Linear", &light4LinearValue, 0.0f, 1.0f);
-			//Quadratic 
-			ImGui::SliderFloat("P_Light 4s Quadratic", &light4QuadraticValue, 0.0f, 0.5f);
-		}
-		SetPointLightConfigs(3, shaderProgram, light4Ambient, light4Diffuse, light4Specular, light4ConstValue, light4LinearValue, light4QuadraticValue);
-	#pragma endregion
+		#pragma endregion
 
 		glm::mat4 model;
 
-
-		static int index = 2;
+		static int index = 10;
 		if (ImGui::TreeNode("Model Configs")) {
 			ImGui::SliderInt("Number Of Models", &index, 0.0f, std::size(cubePositions));
 		}
@@ -628,18 +601,10 @@ int main() {
 		lampShader.setMat4("projection", projection);
 		//Draw light emitter cube...
 
-		//Light color configs...
-		static float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-		if (ImGui::TreeNodeEx("Point Light General Configs")) {
-			ImGui::ColorEdit4("Point Light Colors", color);
-		}
-
-		lampShader.setVec3("lightColor", color[0], color[1], color[2]);
-
-		for (unsigned int i = 0; i < 4; i++) {
+		for (unsigned int i = 0; i < 10; i++) {
 			model = glm::mat4(1.0f);
 			model = glm::translate(model, pointLightPositions[i]);
-			model = glm::scale(model, glm::vec3(0.2f));
+			model = glm::scale(model, glm::vec3(0.015f));
 			lampShader.setMat4("model", model);
 			lapmModel.Draw(lampShader);
 		}
@@ -651,6 +616,9 @@ int main() {
 		//Swap back buffer to front buffer to actually render the shit we want to see...
 		glfwSwapBuffers(window);
 	}
+	#pragma endregion
+
+	
 	
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
