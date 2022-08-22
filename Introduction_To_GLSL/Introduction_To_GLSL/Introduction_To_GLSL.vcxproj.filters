@@ -91,6 +91,12 @@
     <None Include="reflectiveShader.frag">
       <Filter>Resource Files\Shaders</Filter>
     </None>
+    <None Include="semi-transparent.vert">
+      <Filter>Resource Files\Shaders</Filter>
+    </None>
+    <None Include="semi-transparent.frag">
+      <Filter>Resource Files\Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="shaderClass.h">

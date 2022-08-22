@@ -176,6 +176,8 @@
     <None Include="lampShader.vert" />
     <None Include="reflectiveShader.frag" />
     <None Include="reflectiveShader.vert" />
+    <None Include="semi-transparent.frag" />
+    <None Include="semi-transparent.vert" />
     <None Include="skybox.frag" />
     <None Include="skybox.vert" />
   </ItemGroup>

@@ -21,6 +21,7 @@
 #include <filesystem>
 
 unsigned int numberOfPointLights = 10;
+unsigned int numberOfRefractionPointLights = 4;
 
 struct PointLightSettings
 {
@@ -335,6 +336,7 @@ int main() {
 	Shader shaderProgram("MultipleLights.vert", "MultipleLights.frag");
 	Shader lampShader("lampShader.vert", "lampShader.frag");
 	Shader reflectiveShader("reflectiveShader.vert", "reflectiveShader.frag");
+	Shader refractionShader("semi-transparent.vert", "semi-transparent.frag");
 
 	Model models[]
 	{
@@ -484,14 +486,18 @@ int main() {
 	reflectiveShader.setInt("skybox", 0);
 	#pragma endregion
 
-	Model reflectiveModel("Models/buildings/Residential Buildings 010.obj");
-	glm::vec3 reflectiveModelPos = glm::vec3(15.0f, 0.0f, 10.0f);
-	
+	Model reflectiveModel("Models/minecraft_lamp/source/Redstone-lamp.obj");
+	glm::vec3 reflectiveModelPos = glm::vec3(15.0f, 0.0f, 20.0f);
+
+	Model semiReflectiveModel("Models/minecraft_lamp/source/Redstone-lamp.obj");
+	glm::vec3 semiReflectiveModelPos = glm::vec3(25.0f, 0.0f, 20.0f);
+
  	 //------------------------//
 	 //Main render loop...
     //------------------------//
    //While the window should not be closed...
 
+	//Blinn Phong Shader Properties...
 	std::vector<PointLightSettings> pointLightSettings(numberOfPointLights);
 	PointLightSettings previousLightSettings;
 	std::vector<glm::vec3> pAmbientValues(numberOfPointLights);
@@ -540,8 +546,8 @@ int main() {
 		}
 		#pragma endregion
 		ImGui::Spacing();
-
 		//Initial Instructions...
+		#pragma region Initial Instructions & Input Visualization
 		ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
 		ImGui::Text("INPUT INSTRUCTIONS :");
 		ImGui::Spacing();
@@ -559,7 +565,10 @@ int main() {
 		ImGui::Text(hiddenStateString.c_str());
 		ImGui::Spacing();
 		ImGui::PopStyleColor();
+		#pragma endregion
 
+		//Audio Configurations & ImGui Input Handling...
+		#pragma region Audio Configs / ImGui Settings
 		ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(180, 100, 255, 255));
 		ImGui::Text("AUDIO CONFIGS");
 		static float musicVolume = 0.5f;
@@ -574,9 +583,10 @@ int main() {
 
 		glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		#pragma endregion
 
-		glm::vec3 pointLightPositions[] =
-		{
+		//Creating the point light position in the main rendering loop to be able to move in "update"...
+		glm::vec3 pointLightPositions[] = {
 			glm::vec3(0.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 2.0f),
 			glm::vec3(3.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 2.0f),
 			glm::vec3(6.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 2.0f),
@@ -644,8 +654,7 @@ int main() {
 		ImGui::PopStyleColor();
 
 		#pragma region Directional Light uniform & GUI values handling
-		
-
+	
 		//Directional Light Configs...
 		static float dirDirection[3] = { -0.2f, -1.0f, -0.3f };
 		glm::vec3 dirLightDirection = glm::vec3(dirDirection[0], dirDirection[1], dirDirection[2]);
@@ -717,14 +726,13 @@ int main() {
 		shaderProgram.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(radiansOuter)));
 		#pragma endregion
 
+		#pragma region Point Light uniform values & GUI values handling
 		//Point light position assignment...
 		for (int i = 0; i < numberOfPointLights; i++) {
 			std::string pointLightString = "pointLights[]";
 			std::string pointLightIndexString = pointLightString.insert(12, std::to_string(i).c_str());
 			shaderProgram.setVec3(pointLightIndexString + ".position", pointLightPositions[i]);
 		}
-
-		#pragma region Point Light uniform values & GUI values handling
 
 		for (int i = 0; i < pAmbientValues.size(); i++) {
 			pAmbientValues[i] = glm::vec3(pointLightSettings[i].ambient[0], pointLightSettings[i].ambient[1], pointLightSettings[i].ambient[2]);
@@ -753,9 +761,9 @@ int main() {
 
 		#pragma endregion
 
-		glm::mat4 model;
-
 		#pragma region Draw Main Scene Objects/Models
+
+		glm::mat4 model;
 
 		static int index = 10;
 		if (ImGui::TreeNode("Model Configs")) {
@@ -821,6 +829,35 @@ int main() {
 		reflectiveModel.Draw(reflectiveShader);
 		#pragma endregion
 
+		refractionShader.Activate();
+		refractionShader.setMat4("view", view);
+		refractionShader.setMat4("projection", projection);
+		#pragma region SemiReflective - Refracting Model/Object
+
+		static float reflectionRatio = 1.00f;
+		static float refractionRatio = 1.52f;
+		if (ImGui::TreeNode("Refraction Model Settings")) {
+			ImGui::BulletText("Air : 1.00");
+			ImGui::BulletText("Water : 1.33");
+			ImGui::BulletText("Ice : 1.309");
+			ImGui::BulletText("Glass : 1.52");
+			ImGui::BulletText("Diamond : 2.42");
+			ImGui::InputFloat("Reflective Object Ration", &reflectionRatio);
+			ImGui::Spacing();
+			ImGui::InputFloat("Refraction Object Ration", &refractionRatio);
+		}
+		refractionShader.setFloat("fromObject", reflectionRatio);
+		refractionShader.setFloat("toObject", refractionRatio);
+
+		refractionShader.Activate();
+		model = glm::mat4(1.0f);
+		model = glm::translate(model, semiReflectiveModelPos);
+		model = glm::scale(model, glm::vec3(0.2f));
+		refractionShader.setMat4("model", model);
+		refractionShader.setVec3("cameraPos", camera.cameraTransform.position);
+		semiReflectiveModel.Draw(refractionShader);
+		#pragma endregion
+
 		ImGui::End();
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -835,6 +872,7 @@ int main() {
 	lampShader.Delete();
 	skyboxShader.Delete();
 	reflectiveShader.Delete();
+	refractionShader.Delete();
 	glfwTerminate();
 	return 0;
 }
