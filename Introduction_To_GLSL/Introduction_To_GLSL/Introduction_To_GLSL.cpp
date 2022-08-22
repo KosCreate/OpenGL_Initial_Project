@@ -18,6 +18,7 @@
 #include <imgui/imgui_impl_opengl3.h>
 #include <assimp/ai_assert.h>
 #include <vector>
+#include <filesystem>
 
 unsigned int numberOfPointLights = 10;
 
@@ -219,7 +220,9 @@ int initialize_GLAD()
 		return -1;
 	}
 }
-
+/// <summary>
+/// ImGui initializer...
+/// </summary>
 void GUIInitializer(GLFWwindow* window) {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -228,7 +231,9 @@ void GUIInitializer(GLFWwindow* window) {
 	ImGui_ImplOpenGL3_Init();
 	ImGui::StyleColorsDark();
 }
-
+/// <summary>
+///Helper point light value assigner method...
+/// </summary>
 void SetPointLightConfigs(int pointLightIndex, Shader shader, glm::vec3 pointAmbient, glm::vec3 pointDiffuse, glm::vec3 pointSpecular,
 	float constant, float linear, float quadratic) {
 	std::string pointLightString = "pointLights[]";
@@ -239,6 +244,37 @@ void SetPointLightConfigs(int pointLightIndex, Shader shader, glm::vec3 pointAmb
 	shader.setFloat(pointLightIndexString + ".constant", constant);
 	shader.setFloat(pointLightIndexString + ".linear", linear);
 	shader.setFloat(pointLightIndexString + ".quadratic", quadratic);
+}
+
+// loads a cubemap texture from 6 individual texture faces...
+unsigned int loadCubemap(vector<std::string> faces)
+{
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	int width, height, nrComponents;
+	for (unsigned int i = 0; i < faces.size(); i++)
+	{
+		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrComponents, 0);
+		if (data)
+		{
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			stbi_image_free(data);
+		}
+		else
+		{
+			std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+			stbi_image_free(data);
+		}
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	return textureID;
 }
 
 int main() {
@@ -295,8 +331,10 @@ int main() {
 		"Models/buildings/Residential Buildings 010.obj",
 	};
 
+	Shader skyboxShader("skybox.vert", "skybox.frag");
 	Shader shaderProgram("MultipleLights.vert", "MultipleLights.frag");
 	Shader lampShader("lampShader.vert", "lampShader.frag");
+	Shader reflectiveShader("reflectiveShader.vert", "reflectiveShader.frag");
 
 	Model models[]
 	{
@@ -316,7 +354,138 @@ int main() {
 
 	Model lapmModel("Models/minecraft_lamp/source/Redstone-lamp.obj");
 	
+	#pragma region Skybox Initialization
+	float cubeVertices[] = {
+		// positions          // normals
+		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+		 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+		-0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
 
+		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+		-0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+
+		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+		-0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+		-0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+
+		 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+		 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+		 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+		 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+
+		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+		 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+		-0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+
+		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+		-0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
+	};
+	float skyboxVertices[] = {
+		// positions          
+		-1.0f,  1.0f, -1.0f,
+		-1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+
+		-1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+
+		 1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+
+		-1.0f, -1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+
+		-1.0f,  1.0f, -1.0f,
+		 1.0f,  1.0f, -1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f, -1.0f,
+
+		-1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f
+	};
+
+	// cube VAO
+	unsigned int cubeVAO, cubeVBO;
+	glGenVertexArrays(1, &cubeVAO);
+	glGenBuffers(1, &cubeVBO);
+	glBindVertexArray(cubeVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), &cubeVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+	// skybox VAO
+	unsigned int skyboxVAO, skyboxVBO;
+	glGenVertexArrays(1, &skyboxVAO);
+	glGenBuffers(1, &skyboxVBO);
+	glBindVertexArray(skyboxVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+	// load textures
+	// -------------
+	vector<std::string> faces
+	{
+		"Skybox_Textures/skybox/right.jpg",
+		"Skybox_Textures/skybox/left.jpg",
+		"Skybox_Textures/skybox/top.jpg",
+		"Skybox_Textures/skybox/bottom.jpg",
+		"Skybox_Textures/skybox/front.jpg",
+		"Skybox_Textures/skybox/back.jpg",
+	};
+
+	unsigned int cubemapTexture = loadCubemap(faces);
+
+	skyboxShader.Activate();
+	skyboxShader.setInt("skybox", 0);
+	reflectiveShader.setInt("skybox", 0);
+	#pragma endregion
+
+	Model reflectiveModel("Models/buildings/Residential Buildings 010.obj");
+	glm::vec3 reflectiveModelPos = glm::vec3(15.0f, 0.0f, 10.0f);
 	
  	 //------------------------//
 	 //Main render loop...
@@ -334,12 +503,13 @@ int main() {
 	while (!glfwWindowShouldClose(window)) {
 		//Poll keyboard events to make the window interactable...
 		glfwPollEvents();
-		float currentFrame = glfwGetTime();
+		float currentFrame = static_cast<float>(glfwGetTime());
 		deltaTime = currentFrame - lastFrameTime;
 		lastFrameTime = currentFrame;
 		//Processing the user input...
 		ProcessInput(window);
 
+		//Decide to pause audio...
 		MainThemeSoundEngine->setAllSoundsPaused(muteAudio);
 		AmbienceSoundEngine->setAllSoundsPaused(muteAudio);
 
@@ -348,7 +518,9 @@ int main() {
 		ImGui::NewFrame();
 
 		//Begin UI Draw & Callbacks...
-		ImGui::Begin("Light/Material Configs");
+		ImGui::Begin("SCENE INSPECTOR");
+
+		#pragma region Processing Data Info
 		if (ImGui::TreeNode("Processing Data")) {
 			std::string fpsMsg = "MS/FPS : " + std::to_string(1000.0 / double(deltaTime));
 			glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX, &total_mem_kb);
@@ -366,6 +538,7 @@ int main() {
 			ImGui::Text(memoryUsage.c_str());
 			ImGui::PopStyleColor();
 		}
+		#pragma endregion
 		ImGui::Spacing();
 
 		//Initial Instructions...
@@ -404,26 +577,20 @@ int main() {
 
 		glm::vec3 pointLightPositions[] =
 		{
-			glm::vec3(0.0f + glm::cos(glfwGetTime()), 0.0f + glm::sin(glfwGetTime()), 2.0f),
+			glm::vec3(0.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 2.0f),
 			glm::vec3(3.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 2.0f),
 			glm::vec3(6.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 2.0f),
 			glm::vec3(12.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 2.0f),
 			glm::vec3(18.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 3.0f),
 			glm::vec3(24.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 3.0f),
 			glm::vec3(30.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 3.0f),
-			glm::vec3(36.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 4.0f),
-			glm::vec3(42.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 4.0f),
-			glm::vec3(48.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 4.0f)
+			glm::vec3(36.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 3.5f),
+			glm::vec3(42.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 3.5f),
+			glm::vec3(48.0f + glm::cos(glfwGetTime()), glm::sin(glfwGetTime()), 3.5f)
 		};
-
+		
 		shaderProgram.Activate();
-		for (int i = 0; i < 10; i++) {
-			std::string pointLightString = "pointLights[]";
-			std::string pointLightIndexString = pointLightString.insert(12, std::to_string(i).c_str());
-			shaderProgram.setVec3(pointLightIndexString + ".position", pointLightPositions[i]);
-		}
 		shaderProgram.setVec3("viewPos", camera.cameraTransform.position);
-
 		glm::mat4 view = glm::mat4(1.0f);
 		glm::mat4 projection = glm::mat4(1.0f);
 
@@ -431,10 +598,8 @@ int main() {
 		view = camera.GetViewMatrix();
 		//FOV, ASPECT RATION, NEAR CLIPPING PLANE, FAR CLIPPING PLANE...
 		projection = glm::perspective(glm::radians(camera.cameraParameters.fieldOfView), (float)SCR_WIDTH / SCR_HEIGHT, 0.1f, 100.0f);
-
 		shaderProgram.setMat4("view", view);
 		shaderProgram.setMat4("projection", projection);
-
 		shaderProgram.setVec3("spotLight.position", camera.cameraTransform.position);
 		shaderProgram.setVec3("spotLight.direction", camera.cameraTransform.cameraFront);
 
@@ -474,10 +639,12 @@ int main() {
 		shaderProgram.setInt("material.specular", matSpecular);
 		#pragma endregion
 
-		#pragma region Directional Light uniform & GUI values handling
 		ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(200, 100, 255, 255));
 		ImGui::Text("LIGHT CONFIGS");
 		ImGui::PopStyleColor();
+
+		#pragma region Directional Light uniform & GUI values handling
+		
 
 		//Directional Light Configs...
 		static float dirDirection[3] = { -0.2f, -1.0f, -0.3f };
@@ -519,6 +686,7 @@ int main() {
 		static float spotQuadraticValue = 0.039f;
 		static float radiansInner = 12.5f;
 		static float radiansOuter = 15.0f;
+
 		if (ImGui::TreeNode("Spotlight Configs"))
 		{
 			//Ambient...
@@ -538,6 +706,7 @@ int main() {
 			//Cut off (outer)....
 			ImGui::SliderAngle("Spotlight Outer Cutoff", &radiansOuter);
 		}
+
 		shaderProgram.setVec3("spotLight.ambient", spotAmbient);
 		shaderProgram.setVec3("spotLight.diffuse", spotDiffuse);
 		shaderProgram.setVec3("spotLight.specular", spotSpecular);
@@ -548,14 +717,19 @@ int main() {
 		shaderProgram.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(radiansOuter)));
 		#pragma endregion
 
+		//Point light position assignment...
+		for (int i = 0; i < numberOfPointLights; i++) {
+			std::string pointLightString = "pointLights[]";
+			std::string pointLightIndexString = pointLightString.insert(12, std::to_string(i).c_str());
+			shaderProgram.setVec3(pointLightIndexString + ".position", pointLightPositions[i]);
+		}
+
 		#pragma region Point Light uniform values & GUI values handling
 
 		for (int i = 0; i < pAmbientValues.size(); i++) {
-			for (int i = 0; i < numberOfPointLights; i++) {
-				pAmbientValues[i] = glm::vec3(pointLightSettings[i].ambient[0], pointLightSettings[i].ambient[1], pointLightSettings[i].ambient[2]);
-				pDiffuseValues[i] = glm::vec3(pointLightSettings[i].diffuse[0], pointLightSettings[i].diffuse[1], pointLightSettings[i].diffuse[2]);
-				pSpecularValues[i] = glm::vec3(pointLightSettings[i].specular[0], pointLightSettings[i].specular[1], pointLightSettings[i].specular[2]);
-			}
+			pAmbientValues[i] = glm::vec3(pointLightSettings[i].ambient[0], pointLightSettings[i].ambient[1], pointLightSettings[i].ambient[2]);
+			pDiffuseValues[i] = glm::vec3(pointLightSettings[i].diffuse[0], pointLightSettings[i].diffuse[1], pointLightSettings[i].diffuse[2]);
+			pSpecularValues[i] = glm::vec3(pointLightSettings[i].specular[0], pointLightSettings[i].specular[1], pointLightSettings[i].specular[2]);
 			std::string title = "Point Light : " + std::to_string(i + 1) + " Configs";
 			if (ImGui::TreeNode(title.c_str())) {
 				if (pointLightSettings[0].linear != 0) {
@@ -581,12 +755,16 @@ int main() {
 
 		glm::mat4 model;
 
+		#pragma region Draw Main Scene Objects/Models
+
 		static int index = 10;
 		if (ImGui::TreeNode("Model Configs")) {
 			ImGui::SliderInt("Number Of Models", &index, 0.0f, std::size(cubePositions));
 		}
 
+		shaderProgram.Activate();
 		for (int i = 0; i < index; i++) {
+			shaderProgram.Activate();
 			model = glm::mat4(1.0f);
 			model = glm::translate(model, cubePositions[i]);
 			model = glm::scale(model, glm::vec3(0.2f));
@@ -595,36 +773,68 @@ int main() {
 			stbi_set_flip_vertically_on_load(true);
 			models[i].Draw(shaderProgram);
 		}
+		#pragma endregion
 
+		#pragma region Draw "Lamp" Objects
 		lampShader.Activate();
 		lampShader.setMat4("view", view);
 		lampShader.setMat4("projection", projection);
 		//Draw light emitter cube...
-
-		for (unsigned int i = 0; i < 10; i++) {
+		glm::vec3 lampSize = glm::vec3(0.015f);
+		for (unsigned int i = 0; i < numberOfPointLights; i++) {
 			model = glm::mat4(1.0f);
 			model = glm::translate(model, pointLightPositions[i]);
-			model = glm::scale(model, glm::vec3(0.015f));
+			model = glm::scale(model, lampSize);
 			lampShader.setMat4("model", model);
 			lapmModel.Draw(lampShader);
 		}
+		#pragma endregion
+
+		#pragma region Draw Skybox
+
+		// draw skybox as last
+		glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+		skyboxShader.Activate();
+		//view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
+		skyboxShader.setMat4("view", glm::mat3(view));
+		skyboxShader.setMat4("projection", projection);
+		// skybox cube
+		glBindVertexArray(skyboxVAO);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		glBindVertexArray(0);
+		glDepthFunc(GL_LESS); // set depth function back to default
+		#pragma endregion
+
+		reflectiveShader.Activate();
+		reflectiveShader.setMat4("view", view);
+		reflectiveShader.setMat4("projection", projection);
+
+		#pragma region Draw Reflective Model/Object
+		reflectiveShader.Activate();
+		model = glm::mat4(1.0f);
+		model = glm::translate(model, reflectiveModelPos);
+		model = glm::scale(model, glm::vec3(0.2f));
+		reflectiveShader.setMat4("model", model);
+		reflectiveShader.setVec3("cameraPos", camera.cameraTransform.position);
+		reflectiveModel.Draw(reflectiveShader);
+		#pragma endregion
 
 		ImGui::End();
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
 		//Swap back buffer to front buffer to actually render the shit we want to see...
 		glfwSwapBuffers(window);
 	}
 	#pragma endregion
-
-	
-	
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 	shaderProgram.Delete();
 	lampShader.Delete();
+	skyboxShader.Delete();
+	reflectiveShader.Delete();
 	glfwTerminate();
 	return 0;
 }
